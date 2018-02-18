@@ -117,9 +117,28 @@ namespace AurorayqzWeb{
             		// 被推导为 std::shared_ptr<Request> 类型
             		auto request = std::make_shared<Request>();
             		// 接下来要将 stream 中的请求信息进行解析，然后保存到 request 对象中
+            		*request=parse_request(stream);
+
+            		size_t num_additional_bytes = total-bytes_transferred;
+
+            		//如果满足，同样读取
+            		if (request->header.count("Content-Length")>0)
+            		{
+            			boost::asio::async_read(*socket, *read_buffer, 
+            				boost::asio::transfer_exactly(stoull(request->header["Content-Length"])-num_additional_bytes),
+            				[this,socket,read_buffer,request](const boost::system::error_code& ec,size_t bytes_transferred){
+            					if (!ec)
+            					{
+            						// 将指针作为 istream 对象存储到 read_buffer 中
+            						request->content=std::shared_ptr<std::istream>(new std::istream(read_buffer.get()));
+            						respond(socket,request);
+            					}
+            				});
+            		}else{
+            			respond(socket,request);
+            		}
         		}
         	});
-
         }
 
         //解析请求
@@ -156,6 +175,34 @@ namespace AurorayqzWeb{
     			}while(matched==true)
     		}
     		return request;
+        }
+
+        // 应答
+        void respond(std::shared_ptr<socket_type> socket, std::shared_ptr<Request> request) const {
+            // 对请求路径和方法进行匹配查找，并生成响应
+            for(auto res_it: all_resources) {
+                std::regex e(res_it->first);
+                std::smatch sm_res;
+                if(std::regex_match(request->path, sm_res, e)) {
+                    if(res_it->second.count(request->method)>0) {
+                        request->path_match = move(sm_res);
+
+                        // 会被推导为 std::shared_ptr<boost::asio::streambuf>
+                        auto write_buffer = std::make_shared<boost::asio::streambuf>();
+                        std::ostream response(write_buffer.get());
+                        res_it->second[request->method](response, *request);
+
+                        // 在 lambda 中捕获 write_buffer 使其不会再 async_write 完成前被销毁
+                        boost::asio::async_write(*socket, *write_buffer,
+                        [this, socket, request, write_buffer](const boost::system::error_code& ec, size_t bytes_transferred) {
+                            //HTTP 持久连接(HTTP 1.1):
+                            if(!ec && stof(request->http_version)>1.05)
+                                process_request_and_respond(socket);
+                        });
+                        return;
+                    }
+                }
+            }
         }
 
 	};
