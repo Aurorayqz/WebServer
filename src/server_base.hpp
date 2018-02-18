@@ -142,7 +142,7 @@ namespace AurorayqzWeb{
         }
 
         //解析请求
-        Request parse_request(std:istream& stream) const{
+        Request parse_request(std::istream& stream) const{
         	Request request;
 
         	// 使用正则表达式对请求报头进行解析，通过下面的正则表达式
@@ -172,7 +172,7 @@ namespace AurorayqzWeb{
     				{
     					request.header[sub_match[1]]=sub_match[2];
     				}
-    			}while(matched==true)
+    			}while(matched==true);
     		}
     		return request;
         }
