@@ -3,11 +3,11 @@
 // web_server
 //
 
-##ifndef SERVER_HTTPS_HPP
+#ifndef SERVER_HTTPS_HPP
 #define SERVER_HTTPS_HPP 
 
-#include "server_https.hpp"
-#include <boost/asio/ss1.hpp>
+#include "server_http.hpp"
+#include <boost/asio/ssl.hpp>
 
 namespace AurorayqzWeb{
 
